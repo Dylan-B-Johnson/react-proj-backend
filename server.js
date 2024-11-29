@@ -21,7 +21,17 @@ const store = multer.diskStorage({
   },
 });
 
-const getFirstUnusedIndex = () => {
+const getMaxIdx = () => {
+        let max = -1;
+        recipes.recipes.forEach((recipe) => {
+                if (recipe._id > max) {
+                        max = recipe._id;
+                }
+        });
+        return max;
+};
+
+const firstUnusedInsert = () => {
         let i = 0;
         recipes.recipes.forEach((recipe) => {
                 if (recipe._id != i) {
@@ -82,9 +92,9 @@ const validateRecipe = (recipe) => {
         return schema.validate(recipe);
 };
 
-const fixJSON = (req) => {
+const fixJSON = (req, put, recipe) => {
         const fixedJSON = {
-                _id: getFirstUnusedIndex(),
+                _id: put ? req.params.id : getMaxIdx() + 1,
                 name: req.body.name,
                 recipe: [],
                 cone: req.body.cone,
@@ -101,6 +111,8 @@ const fixJSON = (req) => {
         }
         if (req.file) {
                 fixedJSON.image = "./images/" + req.file.filename;
+        } else {
+                fixedJSON.image = recipe.image;
         }
         return fixedJSON;
 };
@@ -121,7 +133,7 @@ app.post("/api/recipes", upload.single("image"), (req, res) => {
                 res.status(400).send(result.error.details[0].message);
                 return;
         }
-        const fixedJSON = fixJSON(req);
+        const fixedJSON = fixJSON(req, false, null);
         recipes.recipes.push(fixedJSON);
         res.status(200).send(fixedJSON);
 });
@@ -132,7 +144,7 @@ app.get("/api/recipes", (req, res) => {
 
 app.delete("/api/recipes/:id", (req, res) => {
         const recipe = recipes.recipes.find((recipe) =>
-                recipe._id === parseInt(req.params.id));
+                recipe._id == parseInt(req.params.id));
         if (!recipe) {
                 res.status(404).send("No recipe with the provided id was found.");
                 return;
@@ -143,12 +155,12 @@ app.delete("/api/recipes/:id", (req, res) => {
             force: true,
         });
         recipes.recipes.splice(index, 1);
-		res.status(200).send(recipe);
+        res.status(200).send(recipe);
 });
 
-app.put("/api/recipes/:id", upload.single("img"), (req,res) => {
+app.put("/api/recipes/:id", upload.single("image"), (req,res) => {
         const recipe = recipes.recipes.find((recipe) =>
-                recipe._id === parseInt(req.params.id));
+                recipe._id == parseInt(req.params.id));
         if (!recipe) {
                 res.status(404).send("No recipe with the provided id was found.");
                 return;
@@ -158,9 +170,10 @@ app.put("/api/recipes/:id", upload.single("img"), (req,res) => {
                 res.status(400).send(result.error.details[0].message);
                 return;
         }
-        const fixedJSON = fixJSON(req);
+        const fixedJSON = fixJSON(req, true, recipe);
         const index = recipes.recipes.indexOf(recipe);
         recipes.recipes[index] = fixedJSON;
+        res.status(200).send(fixedJSON);
 });
 
 app.get("/api/users", (req, res) => {
