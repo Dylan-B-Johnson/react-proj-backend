@@ -6,11 +6,37 @@ const work = require("./work.js");
 const users = require("./users.js");
 const recipes = require("./recipes.js");
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const fs = require("fs");
 const app = express();
 app.use(cors());
 app.use(express.static("public"));
+
+mongoose.connect("mongodb+srv://maxbear123:Backhand7-Python-Talisman@cluster0.s3abr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+        .then(() => console.log("Connected to DB."))
+        .catch((error) => console.log(`Couldn't connect to DB: ${error}`))
+
+const recipeSchema = new mongoose.Schema({
+        name: String,
+        cone: String,
+        link: String,
+        credit: String,
+        image: String,
+        recipe: [{material: String, amount: String}]
+});
+
+const workSchema = new mongoose.Schema({
+        year: Number,
+        image: String,
+        hangs: Boolean,
+        cone: String,
+        highResPNG: Boolean
+});
+
+const Piece = mongoose.model("Piece", workSchema);
+
+const Recipe = mongoose.model("Recipe", recipeSchema);
 
 const store = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -123,45 +149,61 @@ app.get("/", (req, res) => {
         res.sendFile(__dirname + "/index.html");
 });
 
-app.get("/api/work", (req, res) => {
-        res.send(work.work);
+app.get("/api/work", async(req, res) => {
+        res.send(await Piece.find());
 });
 
-app.post("/api/recipes", upload.single("image"), (req, res) => {
+app.post("/api/recipes", upload.single("image"), async(req, res) => {
         const result = validateRecipe(req.body);
         if (result.error) {
                 res.status(400).send(result.error.details[0].message);
                 return;
         }
         const fixedJSON = fixJSON(req, false, null);
-        recipes.recipes.push(fixedJSON);
-        res.status(200).send(fixedJSON);
+        const newRecipe = new Recipe({
+                name: fixedJSON.name,
+                credit: fixedJSON.credit,
+                link: fixedJSON.link,
+                cone: fixedJSON.cone,
+                recipe: fixedJSON.recipe,
+                image: fixedJSON.image,
+        });
+        const id = fixedJSON
+        res.status(200).send(await newRecipe.save());
 });
 
-app.get("/api/recipes", (req, res) => {
-        res.send(recipes.recipes);
+app.get("/api/recipes", async(req, res) => {
+        res.send(await Recipe.find());
 });
 
-app.delete("/api/recipes/:id", (req, res) => {
-        const recipe = recipes.recipes.find((recipe) =>
-                recipe._id == parseInt(req.params.id));
-        if (!recipe) {
+app.delete("/api/recipes/:id", async(req, res) => {
+        let recipe;
+        try {
+                recipe = await Recipe.findByIdAndDelete(req.params.id);
+                if (!recipe) {
+                        res.status(404).send("No recipe with the provided id was found.");
+                        return;
+                }
+        } catch (error) {
                 res.status(404).send("No recipe with the provided id was found.");
                 return;
         }
-        const index = recipes.recipes.indexOf(recipe);
         // delete the image
         fs.rmSync("./public/" + recipe.image.substring(1), {
             force: true,
         });
-        recipes.recipes.splice(index, 1);
         res.status(200).send(recipe);
 });
 
-app.put("/api/recipes/:id", upload.single("image"), (req,res) => {
-        const recipe = recipes.recipes.find((recipe) =>
-                recipe._id == parseInt(req.params.id));
-        if (!recipe) {
+app.put("/api/recipes/:id", upload.single("image"), async(req,res) => {
+        let recipe;
+        try {
+                recipe = Recipe.findOne({_id: req.params.id});
+                if (!recipe) {
+                        res.status(404).send("No recipe with the provided id was found.");
+                        return;
+                }
+        } catch (e) {
                 res.status(404).send("No recipe with the provided id was found.");
                 return;
         }
@@ -171,9 +213,16 @@ app.put("/api/recipes/:id", upload.single("image"), (req,res) => {
                 return;
         }
         const fixedJSON = fixJSON(req, true, recipe);
-        const index = recipes.recipes.indexOf(recipe);
-        recipes.recipes[index] = fixedJSON;
-        res.status(200).send(fixedJSON);
+        const updatedRecipe = new Recipe({
+                name: fixedJSON.name,
+                credit: fixedJSON.credit,
+                link: fixedJSON.link,
+                cone: fixedJSON.cone,
+                recipe: fixedJSON.recipe,
+                image: fixedJSON.image,
+        });
+        await Recipe.updateOne({_id: req.params.id}, fixedJSON);
+        res.status(200).send(await Recipe.findOne({_id: req.params.id}));
 });
 
 app.get("/api/users", (req, res) => {
