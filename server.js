@@ -44,27 +44,6 @@ const store = multer.diskStorage({
   },
 });
 
-const getMaxIdx = () => {
-        let max = -1;
-        recipes.recipes.forEach((recipe) => {
-                if (recipe._id > max) {
-                        max = recipe._id;
-                }
-        });
-        return max;
-};
-
-const firstUnusedInsert = () => {
-        let i = 0;
-        recipes.recipes.forEach((recipe) => {
-                if (recipe._id != i) {
-                        return i;
-                }
-                i++;
-        });
-        return recipes.recipes.length;
-};
-
 const validateRecipe = (recipe) => {
         const schema = Joi.object({
                 name: Joi.string().min(1).required(),
@@ -117,7 +96,6 @@ const validateRecipe = (recipe) => {
 
 const fixJSON = (req, put, recipe) => {
         const fixedJSON = {
-                _id: put ? req.params.id : getMaxIdx() + 1,
                 name: req.body.name,
                 recipe: [],
                 cone: req.body.cone,
