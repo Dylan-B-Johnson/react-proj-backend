@@ -2,9 +2,6 @@ const PORT = 4002;
 
 const Joi = require("joi");
 const multer = require("multer");
-const work = require("./work.js");
-const users = require("./users.js");
-const recipes = require("./recipes.js");
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -223,10 +220,6 @@ app.put("/api/recipes/:id", upload.single("image"), async(req,res) => {
         });
         await Recipe.updateOne({_id: req.params.id}, fixedJSON);
         res.status(200).send(await Recipe.findOne({_id: req.params.id}));
-});
-
-app.get("/api/users", (req, res) => {
-        res.send(users.users);
 });
 
 app.listen(PORT, () => {
